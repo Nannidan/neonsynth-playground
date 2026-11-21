@@ -1,6 +1,6 @@
 import { useState } from 'react'
-import { motion } from 'framer-motion'
-import { Check } from 'lucide-react'
+import { AnimatePresence, motion } from 'framer-motion'
+import { Check, Sparkles, X } from 'lucide-react'
 
 const PLANS = [
   {
@@ -41,6 +41,7 @@ const PLANS = [
 
 export function PricingToggle() {
   const [billing, setBilling] = useState<'monthly' | 'annual'>('annual')
+  const [selectedPlan, setSelectedPlan] = useState<string | null>(null)
 
   return (
     <section className="mx-auto max-w-6xl px-4 py-14 sm:px-6">
@@ -54,7 +55,6 @@ export function PricingToggle() {
           </h2>
         </div>
 
-        {/* Animated Monthly / Annual Switch */}
         <div
           role="group"
           aria-label="Billing interval"
@@ -87,6 +87,35 @@ export function PricingToggle() {
           })}
         </div>
       </div>
+
+      <AnimatePresence>
+        {selectedPlan && (
+          <motion.div
+            initial={{ opacity: 0, y: -8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -8 }}
+            role="status"
+            className="mt-6 flex items-center justify-between gap-4 rounded-xl border border-accent/50 bg-accent/10 px-4 py-3 text-sm text-ink"
+          >
+            <div className="flex items-center gap-2.5">
+              <Sparkles className="h-4 w-4 shrink-0 text-accent" aria-hidden="true" />
+              <span>
+                <strong>{selectedPlan}</strong> ({billing} billing) selected — this is an
+                interactive portfolio demo, so all K-01 synth features above are already
+                unlocked for free.
+              </span>
+            </div>
+            <button
+              type="button"
+              aria-label="Dismiss notice"
+              onClick={() => setSelectedPlan(null)}
+              className="rounded-lg p-1 text-muted hover:text-ink"
+            >
+              <X className="h-4 w-4" aria-hidden="true" />
+            </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       <div className="mt-10 grid gap-5 lg:grid-cols-3">
         {PLANS.map((plan) => {
@@ -140,6 +169,7 @@ export function PricingToggle() {
 
               <button
                 type="button"
+                onClick={() => setSelectedPlan(plan.name)}
                 className={`mt-8 w-full rounded-xl px-4 py-2.5 text-sm font-semibold transition-transform hover:scale-[1.01] active:scale-[0.99] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent ${
                   plan.highlighted
                     ? 'bg-accent text-accent-contrast'

@@ -63,6 +63,7 @@ export function useSynthAudio(params: SynthParams) {
   const filterRef = useRef<BiquadFilterNode | null>(null)
   const shaperRef = useRef<WaveShaperNode | null>(null)
   const gainRef = useRef<GainNode | null>(null)
+  const analyserRef = useRef<AnalyserNode | null>(null)
   const stepRef = useRef(0)
 
   function stopAudio() {
@@ -80,6 +81,7 @@ export function useSynthAudio(params: SynthParams) {
       ctxRef.current.close()
       ctxRef.current = null
     }
+    analyserRef.current = null
     setIsPlaying(false)
   }
 
@@ -97,6 +99,10 @@ export function useSynthAudio(params: SynthParams) {
       const filter = ctx.createBiquadFilter()
       const shaper = ctx.createWaveShaper()
       const gain = ctx.createGain()
+      const analyser = ctx.createAnalyser()
+
+      analyser.fftSize = 64
+      analyser.smoothingTimeConstant = 0.78
 
       filter.type = 'lowpass'
       filter.frequency.value = params.cutoff
@@ -112,7 +118,8 @@ export function useSynthAudio(params: SynthParams) {
 
       filter.connect(shaper)
       shaper.connect(gain)
-      gain.connect(ctx.destination)
+      gain.connect(analyser)
+      analyser.connect(ctx.destination)
 
       if (params.sourceMode === 'mp3' && params.mp3File) {
         const rawBuffer = await params.mp3File.arrayBuffer()
@@ -138,6 +145,7 @@ export function useSynthAudio(params: SynthParams) {
       filterRef.current = filter
       shaperRef.current = shaper
       gainRef.current = gain
+      analyserRef.current = analyser
       setIsPlaying(true)
     } catch {
       stopAudio()
@@ -153,14 +161,12 @@ export function useSynthAudio(params: SynthParams) {
     }
   }
 
-  // Stop Web Audio if power is turned off or source changes
   useEffect(() => {
     if ((!params.powered || params.sourceMode === 'youtube') && isPlaying) {
       stopAudio()
     }
   }, [params.powered, params.sourceMode, isPlaying])
 
-  // Reset playback if user swaps MP3 files or switches between synth/mp3
   useEffect(() => {
     if (isPlaying) {
       stopAudio()
@@ -169,7 +175,6 @@ export function useSynthAudio(params: SynthParams) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [params.sourceMode, params.mp3File])
 
-  // Live-update DSP nodes when sliders move (works for both Synth and MP3)
   useEffect(() => {
     if (!isPlaying || !ctxRef.current || !filterRef.current || !shaperRef.current || !gainRef.current) {
       return
@@ -196,7 +201,6 @@ export function useSynthAudio(params: SynthParams) {
     params.overdrive,
   ])
 
-  // Arpeggiator loop (synth mode only)
   useEffect(() => {
     if (!isPlaying || !oscRef.current || !ctxRef.current) return
 
@@ -219,5 +223,5 @@ export function useSynthAudio(params: SynthParams) {
     return () => stopAudio()
   }, [])
 
-  return { isPlaying, audioError, toggleAudio, stopAudio }
+  return { isPlaying, audioError, toggleAudio, stopAudio, analyserRef }
 }
