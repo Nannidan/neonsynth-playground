@@ -18,11 +18,11 @@ export interface SynthParams {
   cutoff: number
   resonance: number
   drive: number
-  bassBoost: number // 0..15 dB (JamesDSP Dynamic Bass Boost)
-  tubeDrive: number // 0..100 % (JamesDSP Vacuum Tube Modelling)
-  stereoWidth: number // 0..100 % (JamesDSP Stereo Widener)
-  reverbMix: number // 0..100 % (JamesDSP Room Convolver Reverb)
-  compression: number // 0..100 % (JamesDSP Dynamic Range Compressor)
+  bassBoost: number // 0..15 dB (Sub-Bass Low-Shelf Boost)
+  tubeDrive: number // 0..100 % (Vacuum Tube Harmonic Saturation)
+  stereoWidth: number // 0..100 % (Haas Stereo Widener)
+  reverbMix: number // 0..100 % (Convolver Room Reverb)
+  compression: number // 0..100 % (Dynamic Range Compressor)
   masterGain: number // 0..100 %
   eqBands: EqBands // 5-Band Multimodal EQ
   arpeggiator: boolean
@@ -241,7 +241,7 @@ export function useSynthAudio(params: SynthParams) {
           : 0.08 + (params.drive / 100) * 0.14
       gain.gain.value = baseLevel * (params.masterGain / 100)
 
-      // Wire the serial + parallel JamesDSP chain
+      // Wire the serial + parallel Multimodal DSP chain
       bassFilter.connect(eqNodes[0])
       for (let i = 0; i < eqNodes.length - 1; i++) {
         eqNodes[i].connect(eqNodes[i + 1])
@@ -316,7 +316,7 @@ export function useSynthAudio(params: SynthParams) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [params.sourceMode, params.mp3File])
 
-  // Real-time parameter updates across the full JamesDSP signal chain
+  // Real-time parameter updates across the full Multimodal DSP signal chain
   useEffect(() => {
     if (!isPlaying || !ctxRef.current) return
     const now = ctxRef.current.currentTime

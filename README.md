@@ -1,9 +1,9 @@
-# AUDIOSYNTH // HZ — Web Audio API Synthesizer & JamesDSP Mastering Console
+# AUDIOSYNTH // HZ — Web Audio API Synthesizer & Multimodal DSP Mastering Console
 
 [![CI](https://github.com/Nannidan/neonsynth-playground/actions/workflows/ci.yml/badge.svg)](https://github.com/Nannidan/neonsynth-playground/actions)
 **Live Demo:** [https://neonsynth-playground.vercel.app/](https://neonsynth-playground.vercel.app/)
 
-Browser-native modular audio synthesizer and JamesDSP-inspired mastering rack built with **React 19**, **TypeScript**, **Web Audio API**, **Tailwind CSS v4**, and **Framer Motion**.
+Browser-native modular audio synthesizer and multimodal studio mastering rack built with **React 19**, **TypeScript**, **Web Audio API**, **Tailwind CSS v4**, and **Framer Motion**.
 
 ---
 
@@ -42,7 +42,7 @@ Browser-native modular audio synthesizer and JamesDSP-inspired mastering rack bu
 
 ## Key Engineering Features
 
-- **Tactile SVG Rotary Dials (`<RotaryDial />`):** Custom 270° SVG arc + rotating needle indicators synchronized with accessible range inputs across 3 switchable DSP rack bays (`SYNTH & VCF`, `JAMESDSP // STAGE`, `5-BAND EQ`).
+- **Tactile SVG Rotary Dials (`<RotaryDial />`):** Custom 270° SVG arc + rotating needle indicators synchronized with accessible range inputs across 3 switchable DSP rack bays (`SYNTH & VCF`, `Multimodal DSP // STAGE`, `5-BAND EQ`).
 - **60fps Direct-DOM FFT Spectrum Visualizer:** Reads `AnalyserNode.getByteFrequencyData()` inside a `requestAnimationFrame` loop and mutates bar heights via React refs to avoid 60Hz React re-render overhead.
 - **Shareable Patch URLs:** Full DSP state (`wf`, `fm`, `cutoff`, `res`, `drive`, `bass`, `tube`, `wide`, `rev`, `comp`, `gain`, `eq`, `arp`, `od`) is serialized into `URLSearchParams` for 1-click patch sharing.
 

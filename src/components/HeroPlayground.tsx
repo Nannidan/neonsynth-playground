@@ -43,7 +43,7 @@ const SOURCES: { id: AudioSourceMode; label: string }[] = [
   { id: 'mp3', label: 'MP3 FILE' },
 ]
 
-type RackBay = 'synth' | 'jamesdsp' | 'eq'
+type RackBay = 'synth' | 'mastering' | 'eq'
 
 interface PatchPreset {
   name: string
@@ -80,7 +80,7 @@ const PRESETS: PatchPreset[] = [
     overdrive: true,
   },
   {
-    name: 'JamesDSP Reference',
+    name: 'Studio Master',
     waveform: 'saw',
     filterMode: 'lowpass',
     cutoff: 2100,
@@ -548,7 +548,7 @@ export function HeroPlayground() {
         >
           <div className="inline-flex items-center gap-2 rounded-full border border-accent/30 bg-accent/10 px-3 py-1 font-mono text-xs text-accent">
             <Sparkles className="h-3.5 w-3.5" aria-hidden="true" />
-            <span>v3.0 JAMESDSP WEB AUDIO ENGINE</span>
+            <span>v3.0 MULTIMODAL WEB AUDIO DSP</span>
           </div>
 
           <h1 className="mt-5 text-4xl font-extrabold tracking-tight text-ink sm:text-5xl">
@@ -556,8 +556,8 @@ export function HeroPlayground() {
           </h1>
 
           <p className="mt-4 text-base leading-relaxed text-muted">
-            AUDIOSYNTH // HZ pairs zero-latency synthesis with a full JamesDSP-inspired
-            signal chain: Dynamic Bass Boost, Vacuum Tube Modelling, Stereo Widener,
+            AUDIOSYNTH // HZ pairs zero-latency synthesis with a full studio mastering
+            signal chain: Dynamic Bass Boost, Vacuum Tube Saturation, Haas Stereo Widener,
             Convolver Room Reverb, DRC Limiter, and a 5-Band Multimodal Equalizer.
           </p>
 
@@ -617,7 +617,7 @@ export function HeroPlayground() {
           </div>
         </motion.div>
 
-        {/* Right: Interactive Synth & JamesDSP Console */}
+        {/* Right: Interactive Synth & Multimodal DSP Console */}
         <motion.div
           initial={{ opacity: 0, y: 24 }}
           animate={{ opacity: 1, y: 0 }}
@@ -741,7 +741,7 @@ export function HeroPlayground() {
                 >
                   <span className="inline-flex items-center gap-2">
                     <FileAudio className="h-4 w-4 text-accent" aria-hidden="true" />
-                    <span>LOCAL MP3 / WAV (JAMESDSP CHAIN ACTIVE)</span>
+                    <span>LOCAL MP3 / WAV (LIVE DSP CHAIN ACTIVE)</span>
                   </span>
                   {mp3File && (
                     <span className="max-w-[160px] truncate text-accent">{mp3File.name}</span>
@@ -781,7 +781,7 @@ export function HeroPlayground() {
               ))}
             </div>
 
-            {/* JamesDSP Rack Bay Switcher */}
+            {/* DSP Rack Bay Switcher */}
             <div className="mt-4 flex flex-wrap items-center justify-between gap-2 border-b border-edge pb-3">
               <div className="flex items-center gap-1.5 font-mono text-xs text-muted">
                 <Sliders className="h-3.5 w-3.5 text-accent" aria-hidden="true" />
@@ -792,7 +792,7 @@ export function HeroPlayground() {
                 {(
                   [
                     { id: 'synth', label: 'SYNTH & VCF' },
-                    { id: 'jamesdsp', label: 'JAMESDSP // STAGE' },
+                    { id: 'mastering', label: 'MASTERING // FX' },
                     { id: 'eq', label: '5-BAND EQ' },
                   ] as { id: RackBay; label: string }[]
                 ).map((bay) => {
@@ -936,11 +936,11 @@ export function HeroPlayground() {
               </div>
             )}
 
-            {/* BAY 2: JAMESDSP // STAGE (Full Mastering Suite) */}
-            {rackBay === 'jamesdsp' && (
+            {/* BAY 2: MASTERING // FX (Full Mastering Suite) */}
+            {rackBay === 'mastering' && (
               <div className="mt-4 grid gap-3 sm:grid-cols-3">
                 <RotaryDial
-                  id="jdsp-bass-dial"
+                  id="dsp-bass-dial"
                   label="DYNAMIC BASS"
                   sublabel="75Hz Low-Shelf Boost"
                   value={bassBoost}
@@ -950,7 +950,7 @@ export function HeroPlayground() {
                   onChange={setBassBoost}
                 />
                 <RotaryDial
-                  id="jdsp-tube-dial"
+                  id="dsp-tube-dial"
                   label="VACUUM TUBE"
                   sublabel="Analog Warmth Saturation"
                   value={tubeDrive}
@@ -960,7 +960,7 @@ export function HeroPlayground() {
                   onChange={setTubeDrive}
                 />
                 <RotaryDial
-                  id="jdsp-wide-dial"
+                  id="dsp-wide-dial"
                   label="STEREO WIDENER"
                   sublabel="Haas M/S Expansion"
                   value={stereoWidth}
@@ -970,7 +970,7 @@ export function HeroPlayground() {
                   onChange={setStereoWidth}
                 />
                 <RotaryDial
-                  id="jdsp-reverb-dial"
+                  id="dsp-reverb-dial"
                   label="ROOM REVERB"
                   sublabel="Convolver Impulse Mix"
                   value={reverbMix}
@@ -980,7 +980,7 @@ export function HeroPlayground() {
                   onChange={setReverbMix}
                 />
                 <RotaryDial
-                  id="jdsp-comp-dial"
+                  id="dsp-comp-dial"
                   label="DRC LIMITER"
                   sublabel="Dynamic Range Comp"
                   value={compression}
@@ -990,7 +990,7 @@ export function HeroPlayground() {
                   onChange={setCompression}
                 />
                 <RotaryDial
-                  id="jdsp-gain-dial"
+                  id="dsp-gain-dial"
                   label="OUTPUT GAIN"
                   sublabel="Master Post-DSP Level"
                   value={masterGain}
