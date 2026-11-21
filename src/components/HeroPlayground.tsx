@@ -264,7 +264,7 @@ function RotaryDial({
 
 function getInitialPatch() {
   const defaults = {
-    waveform: 'sine' as SynthWaveform,
+    waveform: 'saw' as SynthWaveform,
     filterMode: 'lowpass' as FilterMode,
     cutoff: 1240,
     resonance: 48,
