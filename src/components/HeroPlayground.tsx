@@ -6,16 +6,21 @@ import {
   Link2,
   PlayCircle,
   Power,
+  RotateCcw,
   Shuffle,
+  Sliders,
   Sparkles,
   Volume2,
   VolumeX,
   Zap,
 } from 'lucide-react'
 import {
+  EQ_LABELS,
   extractYouTubeId,
   useSynthAudio,
   type AudioSourceMode,
+  type EqBands,
+  type FilterMode,
   type SynthWaveform,
 } from '../hooks/useSynthAudio'
 
@@ -23,6 +28,13 @@ const WAVEFORMS: { id: SynthWaveform; label: string }[] = [
   { id: 'sine', label: 'SINE' },
   { id: 'saw', label: 'SAW' },
   { id: 'square', label: 'SQUARE' },
+  { id: 'triangle', label: 'TRI' },
+]
+
+const FILTER_MODES: { id: FilterMode; label: string }[] = [
+  { id: 'lowpass', label: 'LPF' },
+  { id: 'bandpass', label: 'BPF' },
+  { id: 'highpass', label: 'HPF' },
 ]
 
 const SOURCES: { id: AudioSourceMode; label: string }[] = [
@@ -31,41 +43,281 @@ const SOURCES: { id: AudioSourceMode; label: string }[] = [
   { id: 'mp3', label: 'MP3 FILE' },
 ]
 
+type RackBay = 'synth' | 'jamesdsp' | 'eq'
+
 interface PatchPreset {
   name: string
   waveform: SynthWaveform
+  filterMode: FilterMode
   cutoff: number
   resonance: number
   drive: number
+  bassBoost: number
+  tubeDrive: number
+  stereoWidth: number
+  reverbMix: number
+  compression: number
+  eqBands: EqBands
   arpeggiator: boolean
   overdrive: boolean
 }
 
 const PRESETS: PatchPreset[] = [
-  { name: 'Blade Bass', waveform: 'saw', cutoff: 540, resonance: 72, drive: 68, arpeggiator: false, overdrive: true },
-  { name: 'Acid Lead', waveform: 'square', cutoff: 1760, resonance: 86, drive: 55, arpeggiator: true, overdrive: true },
-  { name: 'Lo-Fi Warmth', waveform: 'sine', cutoff: 820, resonance: 24, drive: 30, arpeggiator: true, overdrive: false },
-  { name: 'Cyber Arp', waveform: 'saw', cutoff: 1480, resonance: 52, drive: 42, arpeggiator: true, overdrive: false },
+  {
+    name: 'Blade Bass',
+    waveform: 'saw',
+    filterMode: 'lowpass',
+    cutoff: 540,
+    resonance: 72,
+    drive: 68,
+    bassBoost: 9,
+    tubeDrive: 55,
+    stereoWidth: 40,
+    reverbMix: 18,
+    compression: 60,
+    eqBands: [6, 3, -2, 2, 4],
+    arpeggiator: false,
+    overdrive: true,
+  },
+  {
+    name: 'JamesDSP Reference',
+    waveform: 'saw',
+    filterMode: 'lowpass',
+    cutoff: 2100,
+    resonance: 34,
+    drive: 42,
+    bassBoost: 8,
+    tubeDrive: 64,
+    stereoWidth: 78,
+    reverbMix: 32,
+    compression: 52,
+    eqBands: [5, 2, 0, 4, 6],
+    arpeggiator: true,
+    overdrive: false,
+  },
+  {
+    name: 'Vacuum Tube Warmth',
+    waveform: 'triangle',
+    filterMode: 'lowpass',
+    cutoff: 1180,
+    resonance: 28,
+    drive: 36,
+    bassBoost: 6,
+    tubeDrive: 88,
+    stereoWidth: 52,
+    reverbMix: 28,
+    compression: 45,
+    eqBands: [4, 5, 2, -1, -2],
+    arpeggiator: true,
+    overdrive: false,
+  },
+  {
+    name: 'Wide Hall Cathedral',
+    waveform: 'sine',
+    filterMode: 'lowpass',
+    cutoff: 1640,
+    resonance: 40,
+    drive: 25,
+    bassBoost: 4,
+    tubeDrive: 30,
+    stereoWidth: 95,
+    reverbMix: 82,
+    compression: 35,
+    eqBands: [2, 0, -1, 3, 7],
+    arpeggiator: true,
+    overdrive: false,
+  },
+  {
+    name: 'Acid Lead 303',
+    waveform: 'square',
+    filterMode: 'bandpass',
+    cutoff: 1760,
+    resonance: 88,
+    drive: 74,
+    bassBoost: 5,
+    tubeDrive: 48,
+    stereoWidth: 60,
+    reverbMix: 24,
+    compression: 70,
+    eqBands: [3, -2, 5, 6, 2],
+    arpeggiator: true,
+    overdrive: true,
+  },
 ]
 
+const EQ_CURVES: { label: string; bands: EqBands }[] = [
+  { label: 'Flat', bands: [0, 0, 0, 0, 0] },
+  { label: 'Sub Slam', bands: [9, 5, -2, 1, 3] },
+  { label: 'V-Clarity', bands: [6, 2, -4, 4, 7] },
+  { label: 'Tube Mid', bands: [3, 5, 4, 1, -2] },
+  { label: 'Vocal Air', bands: [-2, 1, 4, 6, 8] },
+]
+
+interface RotaryDialProps {
+  id: string
+  label: string
+  sublabel?: string
+  value: number
+  min: number
+  max: number
+  step?: number
+  unit?: string
+  onChange: (next: number) => void
+}
+
+function RotaryDial({
+  id,
+  label,
+  sublabel,
+  value,
+  min,
+  max,
+  step = 1,
+  unit = '',
+  onChange,
+}: RotaryDialProps) {
+  const norm = Math.min(1, Math.max(0, (value - min) / (max - min || 1)))
+  const angle = -135 + norm * 270
+  const radius = 18
+  const circumference = 2 * Math.PI * radius
+  const arcLength = circumference * 0.75
+  const dashOffset = arcLength * (1 - norm)
+
+  return (
+    <div className="rounded-xl border border-edge bg-canvas/70 p-3 transition-colors hover:border-accent/40">
+      <div className="flex items-center justify-between gap-2">
+        <div className="min-w-0">
+          <label
+            htmlFor={id}
+            className="block truncate font-mono text-[11px] font-semibold tracking-wider text-muted"
+          >
+            {label}
+          </label>
+          {sublabel && (
+            <span className="block truncate font-mono text-[10px] text-muted/70">{sublabel}</span>
+          )}
+        </div>
+
+        {/* Tactile SVG Rotary Dial Indicator */}
+        <div className="relative flex h-11 w-11 shrink-0 items-center justify-center">
+          <svg className="h-11 w-11 -rotate-[225deg]" viewBox="0 0 44 44" aria-hidden="true">
+            <circle
+              cx="22"
+              cy="22"
+              r={radius}
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="3.2"
+              strokeDasharray={`${arcLength} ${circumference}`}
+              strokeLinecap="round"
+              className="text-edge"
+            />
+            <circle
+              cx="22"
+              cy="22"
+              r={radius}
+              fill="none"
+              stroke="var(--accent)"
+              strokeWidth="3.2"
+              strokeDasharray={`${arcLength} ${circumference}`}
+              strokeDashoffset={dashOffset}
+              strokeLinecap="round"
+            />
+          </svg>
+          <div
+            className="pointer-events-none absolute inset-1.5 rounded-full border border-edge bg-surface shadow-inner"
+            style={{ transform: `rotate(${angle}deg)` }}
+          >
+            <span className="mx-auto mt-1 block h-2 w-0.5 rounded-full bg-accent" />
+          </div>
+        </div>
+      </div>
+
+      <div className="mt-1.5 flex items-center justify-between font-mono text-xs">
+        <span className="text-[10px] text-muted">
+          {min}
+          {unit}
+        </span>
+        <span className="font-bold text-ink">
+          {value > 0 && min < 0 ? `+${value}` : value}
+          {unit}
+        </span>
+        <span className="text-[10px] text-muted">
+          {max}
+          {unit}
+        </span>
+      </div>
+
+      <input
+        id={id}
+        type="range"
+        min={min}
+        max={max}
+        step={step}
+        value={value}
+        onChange={(e) => onChange(Number(e.target.value))}
+        className="mt-1.5 w-full cursor-pointer accent-[var(--accent)]"
+      />
+    </div>
+  )
+}
+
 function getInitialPatch() {
-  if (typeof window === 'undefined') {
-    return { waveform: 'sine' as SynthWaveform, cutoff: 1240, resonance: 48, drive: 35, arpeggiator: true, overdrive: false }
+  const defaults = {
+    waveform: 'sine' as SynthWaveform,
+    filterMode: 'lowpass' as FilterMode,
+    cutoff: 1240,
+    resonance: 48,
+    drive: 35,
+    bassBoost: 6,
+    tubeDrive: 45,
+    stereoWidth: 50,
+    reverbMix: 24,
+    compression: 40,
+    masterGain: 85,
+    eqBands: [3, 1, 0, 2, 4] as EqBands,
+    arpeggiator: true,
+    overdrive: false,
   }
+  if (typeof window === 'undefined') return defaults
+
   const q = new URLSearchParams(window.location.search)
   const wf = q.get('wf')
-  const waveform: SynthWaveform = wf === 'sine' || wf === 'saw' || wf === 'square' ? wf : 'sine'
+  const waveform: SynthWaveform =
+    wf === 'sine' || wf === 'saw' || wf === 'square' || wf === 'triangle' ? wf : defaults.waveform
+  const fm = q.get('fm')
+  const filterMode: FilterMode =
+    fm === 'lowpass' || fm === 'bandpass' || fm === 'highpass' ? fm : defaults.filterMode
+
   const clamp = (val: string | null, min: number, max: number, fallback: number) => {
     const n = Number(val)
     return val !== null && !Number.isNaN(n) ? Math.min(max, Math.max(min, n)) : fallback
   }
+
+  let eqBands: EqBands = defaults.eqBands
+  const eqRaw = q.get('eq')
+  if (eqRaw) {
+    const parts = eqRaw.split(',').map((n) => Number(n))
+    if (parts.length === 5 && parts.every((n) => !Number.isNaN(n))) {
+      eqBands = parts.map((n) => Math.min(12, Math.max(-12, n))) as EqBands
+    }
+  }
+
   return {
     waveform,
-    cutoff: clamp(q.get('cutoff'), 120, 2400, 1240),
-    resonance: clamp(q.get('res'), 0, 100, 48),
-    drive: clamp(q.get('drive'), 0, 100, 35),
-    arpeggiator: q.has('arp') ? q.get('arp') === '1' : true,
-    overdrive: q.has('od') ? q.get('od') === '1' : false,
+    filterMode,
+    cutoff: clamp(q.get('cutoff'), 120, 4800, defaults.cutoff),
+    resonance: clamp(q.get('res'), 0, 100, defaults.resonance),
+    drive: clamp(q.get('drive'), 0, 100, defaults.drive),
+    bassBoost: clamp(q.get('bass'), 0, 15, defaults.bassBoost),
+    tubeDrive: clamp(q.get('tube'), 0, 100, defaults.tubeDrive),
+    stereoWidth: clamp(q.get('wide'), 0, 100, defaults.stereoWidth),
+    reverbMix: clamp(q.get('rev'), 0, 100, defaults.reverbMix),
+    compression: clamp(q.get('comp'), 0, 100, defaults.compression),
+    masterGain: clamp(q.get('gain'), 10, 100, defaults.masterGain),
+    eqBands,
+    arpeggiator: q.has('arp') ? q.get('arp') === '1' : defaults.arpeggiator,
+    overdrive: q.has('od') ? q.get('od') === '1' : defaults.overdrive,
   }
 }
 
@@ -73,6 +325,7 @@ export function HeroPlayground() {
   const initial = useMemo(() => getInitialPatch(), [])
 
   const [powered, setPowered] = useState(true)
+  const [rackBay, setRackBay] = useState<RackBay>('synth')
   const [sourceMode, setSourceMode] = useState<AudioSourceMode>('synth')
   const [youtubeUrl, setYoutubeUrl] = useState('https://www.youtube.com/watch?v=jfKfPfyJRdk')
   const [ytPlaying, setYtPlaying] = useState(false)
@@ -80,9 +333,17 @@ export function HeroPlayground() {
   const [copiedLink, setCopiedLink] = useState(false)
 
   const [waveform, setWaveform] = useState<SynthWaveform>(initial.waveform)
+  const [filterMode, setFilterMode] = useState<FilterMode>(initial.filterMode)
   const [cutoff, setCutoff] = useState(initial.cutoff)
   const [resonance, setResonance] = useState(initial.resonance)
   const [drive, setDrive] = useState(initial.drive)
+  const [bassBoost, setBassBoost] = useState(initial.bassBoost)
+  const [tubeDrive, setTubeDrive] = useState(initial.tubeDrive)
+  const [stereoWidth, setStereoWidth] = useState(initial.stereoWidth)
+  const [reverbMix, setReverbMix] = useState(initial.reverbMix)
+  const [compression, setCompression] = useState(initial.compression)
+  const [masterGain, setMasterGain] = useState(initial.masterGain)
+  const [eqBands, setEqBands] = useState<EqBands>(initial.eqBands)
   const [arpeggiator, setArpeggiator] = useState(initial.arpeggiator)
   const [overdrive, setOverdrive] = useState(initial.overdrive)
 
@@ -94,9 +355,17 @@ export function HeroPlayground() {
     mp3File,
     powered,
     waveform,
+    filterMode,
     cutoff,
     resonance,
     drive,
+    bassBoost,
+    tubeDrive,
+    stereoWidth,
+    reverbMix,
+    compression,
+    masterGain,
+    eqBands,
     arpeggiator,
     overdrive,
   })
@@ -115,32 +384,69 @@ export function HeroPlayground() {
   }, [powered, sourceMode, youtubeId, toggleAudio])
 
   const randomizePatch = useCallback(() => {
-    const pick = WAVEFORMS[Math.floor(Math.random() * WAVEFORMS.length)].id
+    const pickWf = WAVEFORMS[Math.floor(Math.random() * WAVEFORMS.length)].id
+    const pickFm = FILTER_MODES[Math.floor(Math.random() * FILTER_MODES.length)].id
     setPowered(true)
-    setWaveform(pick)
-    setCutoff(Math.floor(Math.random() * 2100) + 200)
-    setResonance(Math.floor(Math.random() * 90) + 10)
-    setDrive(Math.floor(Math.random() * 95) + 5)
-    setArpeggiator(Math.random() > 0.4)
-    setOverdrive(Math.random() > 0.5)
+    setWaveform(pickWf)
+    setFilterMode(pickFm)
+    setCutoff(Math.floor(Math.random() * 3800) + 240)
+    setResonance(Math.floor(Math.random() * 85) + 10)
+    setDrive(Math.floor(Math.random() * 90) + 10)
+    setBassBoost(Math.floor(Math.random() * 14))
+    setTubeDrive(Math.floor(Math.random() * 95))
+    setStereoWidth(Math.floor(Math.random() * 95))
+    setReverbMix(Math.floor(Math.random() * 75))
+    setCompression(Math.floor(Math.random() * 80) + 10)
+    setEqBands([
+      Math.floor(Math.random() * 16) - 6,
+      Math.floor(Math.random() * 16) - 6,
+      Math.floor(Math.random() * 16) - 6,
+      Math.floor(Math.random() * 16) - 6,
+      Math.floor(Math.random() * 16) - 6,
+    ])
+    setArpeggiator(Math.random() > 0.35)
+    setOverdrive(Math.random() > 0.45)
   }, [])
 
   function applyPreset(preset: PatchPreset) {
     setPowered(true)
     setWaveform(preset.waveform)
+    setFilterMode(preset.filterMode)
     setCutoff(preset.cutoff)
     setResonance(preset.resonance)
     setDrive(preset.drive)
+    setBassBoost(preset.bassBoost)
+    setTubeDrive(preset.tubeDrive)
+    setStereoWidth(preset.stereoWidth)
+    setReverbMix(preset.reverbMix)
+    setCompression(preset.compression)
+    setEqBands(preset.eqBands)
     setArpeggiator(preset.arpeggiator)
     setOverdrive(preset.overdrive)
+  }
+
+  function updateEqBand(index: number, db: number) {
+    setEqBands((prev) => {
+      const next = [...prev] as EqBands
+      next[index] = db
+      return next
+    })
   }
 
   async function copyPatchLink() {
     const params = new URLSearchParams({
       wf: waveform,
+      fm: filterMode,
       cutoff: String(cutoff),
       res: String(resonance),
       drive: String(drive),
+      bass: String(bassBoost),
+      tube: String(tubeDrive),
+      wide: String(stereoWidth),
+      rev: String(reverbMix),
+      comp: String(compression),
+      gain: String(masterGain),
+      eq: eqBands.join(','),
       arp: arpeggiator ? '1' : '0',
       od: overdrive ? '1' : '0',
     })
@@ -151,7 +457,6 @@ export function HeroPlayground() {
       setCopiedLink(true)
       window.setTimeout(() => setCopiedLink(false), 2000)
     } catch {
-      // Fallback if clipboard API is restricted
       setCopiedLink(true)
       window.setTimeout(() => setCopiedLink(false), 2000)
     }
@@ -210,7 +515,7 @@ export function HeroPlayground() {
     const count = 20
     const freqFactor = cutoff / 800
     const resBoost = 1 + resonance / 140
-    const driveFloor = drive / 220
+    const driveFloor = (drive + tubeDrive * 0.6 + bassBoost * 3) / 320
 
     return Array.from({ length: count }, (_, i) => {
       if (!powered) return 8
@@ -218,12 +523,18 @@ export function HeroPlayground() {
       let raw = 0
       if (waveform === 'sine') raw = (Math.sin(t) + 1) / 2
       else if (waveform === 'saw') raw = ((i * freqFactor) % 5) / 5
+      else if (waveform === 'triangle') raw = 1 - Math.abs(((i * freqFactor) % 2) - 1)
       else raw = Math.sin(t) >= 0 ? 0.92 : 0.2
 
-      const boosted = Math.min(1, raw * resBoost + driveFloor + (overdrive ? 0.14 : 0))
+      const eqIdx = Math.min(4, Math.floor((i / count) * 5))
+      const eqOffset = (eqBands[eqIdx] ?? 0) / 36
+      const boosted = Math.min(
+        1,
+        raw * resBoost + driveFloor + eqOffset + (overdrive ? 0.14 : 0),
+      )
       return Math.max(12, Math.round(boosted * 100))
     })
-  }, [powered, waveform, cutoff, resonance, drive, overdrive])
+  }, [powered, waveform, cutoff, resonance, drive, tubeDrive, bassBoost, eqBands, overdrive])
 
   return (
     <section className="mx-auto max-w-6xl px-4 py-12 sm:px-6 lg:py-20">
@@ -237,17 +548,17 @@ export function HeroPlayground() {
         >
           <div className="inline-flex items-center gap-2 rounded-full border border-accent/30 bg-accent/10 px-3 py-1 font-mono text-xs text-accent">
             <Sparkles className="h-3.5 w-3.5" aria-hidden="true" />
-            <span>v2.4 WEB AUDIO ENGINE</span>
+            <span>v3.0 JAMESDSP WEB AUDIO ENGINE</span>
           </div>
 
           <h1 className="mt-5 text-4xl font-extrabold tracking-tight text-ink sm:text-5xl">
-            Sculpt analog tone directly in your browser.
+            Sculpt analog tone &amp; DSP mastering in your browser.
           </h1>
 
           <p className="mt-4 text-base leading-relaxed text-muted">
-            AUDIOSYNTH K-01 pairs tactile hardware controls with zero-latency digital
-            synthesis. Play the built-in synth, stream a YouTube track, or drop in an MP3
-            file to warp it live through the DSP filter chain.
+            AUDIOSYNTH // HZ pairs zero-latency synthesis with a full JamesDSP-inspired
+            signal chain: Dynamic Bass Boost, Vacuum Tube Modelling, Stereo Widener,
+            Convolver Room Reverb, DRC Limiter, and a 5-Band Multimodal Equalizer.
           </p>
 
           <div className="mt-7 flex flex-wrap gap-3">
@@ -306,7 +617,7 @@ export function HeroPlayground() {
           </div>
         </motion.div>
 
-        {/* Right: Interactive Synth Console */}
+        {/* Right: Interactive Synth & JamesDSP Console */}
         <motion.div
           initial={{ opacity: 0, y: 24 }}
           animate={{ opacity: 1, y: 0 }}
@@ -330,7 +641,7 @@ export function HeroPlayground() {
                   }`}
                 />
                 <span className="font-mono text-xs font-semibold tracking-wider text-ink">
-                  OSC-1 // {webAudioPlaying ? 'LIVE FFT SPECTRUM' : isAnyAudioPlaying ? 'AUDIO LIVE' : 'STANDBY'}
+                  DSP-CHAIN // {webAudioPlaying ? 'LIVE 60FPS FFT' : isAnyAudioPlaying ? 'AUDIO LIVE' : 'STANDBY'}
                 </span>
               </div>
 
@@ -430,7 +741,7 @@ export function HeroPlayground() {
                 >
                   <span className="inline-flex items-center gap-2">
                     <FileAudio className="h-4 w-4 text-accent" aria-hidden="true" />
-                    <span>LOCAL MP3 / WAV (LIVE DSP FX ENABLED)</span>
+                    <span>LOCAL MP3 / WAV (JAMESDSP CHAIN ACTIVE)</span>
                   </span>
                   {mp3File && (
                     <span className="max-w-[160px] truncate text-accent">{mp3File.name}</span>
@@ -452,7 +763,7 @@ export function HeroPlayground() {
             {/* Live Visualizer Display */}
             <div
               aria-label="Live frequency spectrum visualizer"
-              className="mt-4 flex h-40 items-end justify-between gap-1.5 rounded-xl border border-edge bg-canvas p-4"
+              className="mt-4 flex h-36 items-end justify-between gap-1.5 rounded-xl border border-edge bg-canvas p-4"
             >
               {staticBars.map((height, idx) => (
                 <div
@@ -470,101 +781,272 @@ export function HeroPlayground() {
               ))}
             </div>
 
-            {/* Waveform Selector */}
-            <div className="mt-5 flex flex-wrap items-center justify-between gap-3">
-              <div className="flex items-center gap-2 font-mono text-xs text-muted">
-                <span>WAVEFORM</span>
-                {overdrive && powered && (
-                  <span className="inline-flex items-center gap-1 rounded bg-accent/15 px-1.5 py-0.5 text-accent">
-                    <Zap className="h-3 w-3" aria-hidden="true" />
-                    OD
-                  </span>
-                )}
+            {/* JamesDSP Rack Bay Switcher */}
+            <div className="mt-4 flex flex-wrap items-center justify-between gap-2 border-b border-edge pb-3">
+              <div className="flex items-center gap-1.5 font-mono text-xs text-muted">
+                <Sliders className="h-3.5 w-3.5 text-accent" aria-hidden="true" />
+                <span>DSP RACK BAY</span>
               </div>
-              <div className="flex gap-1.5 rounded-lg border border-edge bg-canvas p-1">
-                {WAVEFORMS.map((wf) => {
-                  const selected = waveform === wf.id
+
+              <div className="flex gap-1 rounded-lg border border-edge bg-canvas p-1">
+                {(
+                  [
+                    { id: 'synth', label: 'SYNTH & VCF' },
+                    { id: 'jamesdsp', label: 'JAMESDSP // STAGE' },
+                    { id: 'eq', label: '5-BAND EQ' },
+                  ] as { id: RackBay; label: string }[]
+                ).map((bay) => {
+                  const active = rackBay === bay.id
                   return (
                     <button
-                      key={wf.id}
+                      key={bay.id}
                       type="button"
-                      aria-pressed={selected}
-                      onClick={() => setWaveform(wf.id)}
-                      className={`relative rounded-md px-3 py-1 font-mono text-xs font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-accent ${
-                        selected ? 'text-accent-contrast' : 'text-muted hover:text-ink'
+                      onClick={() => setRackBay(bay.id)}
+                      className={`rounded-md px-2.5 py-1 font-mono text-[11px] font-semibold transition-colors ${
+                        active
+                          ? 'bg-accent text-accent-contrast'
+                          : 'text-muted hover:text-ink'
                       }`}
                     >
-                      {selected && (
-                        <motion.span
-                          layoutId="waveformPill"
-                          transition={{ type: 'spring', stiffness: 450, damping: 32 }}
-                          className="absolute inset-0 rounded-md bg-accent"
-                        />
-                      )}
-                      <span className="relative z-10">{wf.label}</span>
+                      {bay.label}
                     </button>
                   )
                 })}
               </div>
             </div>
 
-            {/* Interactive Sliders */}
-            <div className="mt-5 grid gap-4 sm:grid-cols-3">
-              <div className="rounded-xl border border-edge bg-canvas/70 p-3">
-                <div className="flex justify-between font-mono text-xs">
-                  <label htmlFor="cutoff-slider" className="text-muted">
-                    CUTOFF
-                  </label>
-                  <span className="text-ink">{cutoff} Hz</span>
-                </div>
-                <input
-                  id="cutoff-slider"
-                  type="range"
-                  min={120}
-                  max={2400}
-                  step={20}
-                  value={cutoff}
-                  onChange={(e) => setCutoff(Number(e.target.value))}
-                  className="mt-2.5 w-full cursor-pointer accent-[var(--accent)]"
-                />
-              </div>
+            {/* BAY 1: SYNTH & VCF */}
+            {rackBay === 'synth' && (
+              <div className="mt-4 space-y-4">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  {/* Waveform Selector */}
+                  <div className="flex items-center gap-2">
+                    <span className="font-mono text-[11px] text-muted">OSC:</span>
+                    <div className="flex gap-1 rounded-lg border border-edge bg-canvas p-1">
+                      {WAVEFORMS.map((wf) => {
+                        const selected = waveform === wf.id
+                        return (
+                          <button
+                            key={wf.id}
+                            type="button"
+                            aria-pressed={selected}
+                            onClick={() => setWaveform(wf.id)}
+                            className={`rounded-md px-2.5 py-1 font-mono text-[11px] font-semibold transition-colors ${
+                              selected
+                                ? 'bg-accent text-accent-contrast'
+                                : 'text-muted hover:text-ink'
+                            }`}
+                          >
+                            {wf.label}
+                          </button>
+                        )
+                      })}
+                    </div>
+                  </div>
 
-              <div className="rounded-xl border border-edge bg-canvas/70 p-3">
-                <div className="flex justify-between font-mono text-xs">
-                  <label htmlFor="res-slider" className="text-muted">
-                    RESONANCE
-                  </label>
-                  <span className="text-ink">{resonance}%</span>
+                  {/* Filter Mode Selector */}
+                  <div className="flex items-center gap-2">
+                    <span className="font-mono text-[11px] text-muted">VCF:</span>
+                    <div className="flex gap-1 rounded-lg border border-edge bg-canvas p-1">
+                      {FILTER_MODES.map((fm) => {
+                        const selected = filterMode === fm.id
+                        return (
+                          <button
+                            key={fm.id}
+                            type="button"
+                            aria-pressed={selected}
+                            onClick={() => setFilterMode(fm.id)}
+                            className={`rounded-md px-2.5 py-1 font-mono text-[11px] font-semibold transition-colors ${
+                              selected
+                                ? 'bg-accent text-accent-contrast'
+                                : 'text-muted hover:text-ink'
+                            }`}
+                          >
+                            {fm.label}
+                          </button>
+                        )
+                      })}
+                    </div>
+                  </div>
                 </div>
-                <input
-                  id="res-slider"
-                  type="range"
+
+                <div className="grid gap-3 sm:grid-cols-3">
+                  <RotaryDial
+                    id="cutoff-dial"
+                    label="VCF CUTOFF"
+                    sublabel="Filter Frequency"
+                    value={cutoff}
+                    min={120}
+                    max={4800}
+                    step={20}
+                    unit=" Hz"
+                    onChange={setCutoff}
+                  />
+                  <RotaryDial
+                    id="resonance-dial"
+                    label="RESONANCE"
+                    sublabel="Filter Q Peak"
+                    value={resonance}
+                    min={0}
+                    max={100}
+                    unit="%"
+                    onChange={setResonance}
+                  />
+                  <RotaryDial
+                    id="drive-dial"
+                    label="OVERDRIVE"
+                    sublabel="Harmonic Clip"
+                    value={drive}
+                    min={0}
+                    max={100}
+                    unit="%"
+                    onChange={setDrive}
+                  />
+                  <RotaryDial
+                    id="bass-quick-dial"
+                    label="DYNAMIC BASS"
+                    sublabel="75Hz Sub Shelf"
+                    value={bassBoost}
+                    min={0}
+                    max={15}
+                    unit=" dB"
+                    onChange={setBassBoost}
+                  />
+                  <RotaryDial
+                    id="tube-quick-dial"
+                    label="VACUUM TUBE"
+                    sublabel="2nd Harmonic Drive"
+                    value={tubeDrive}
+                    min={0}
+                    max={100}
+                    unit="%"
+                    onChange={setTubeDrive}
+                  />
+                  <RotaryDial
+                    id="wide-quick-dial"
+                    label="STEREO WIDENER"
+                    sublabel="Haas Soundstage"
+                    value={stereoWidth}
+                    min={0}
+                    max={100}
+                    unit="%"
+                    onChange={setStereoWidth}
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* BAY 2: JAMESDSP // STAGE (Full Mastering Suite) */}
+            {rackBay === 'jamesdsp' && (
+              <div className="mt-4 grid gap-3 sm:grid-cols-3">
+                <RotaryDial
+                  id="jdsp-bass-dial"
+                  label="DYNAMIC BASS"
+                  sublabel="75Hz Low-Shelf Boost"
+                  value={bassBoost}
+                  min={0}
+                  max={15}
+                  unit=" dB"
+                  onChange={setBassBoost}
+                />
+                <RotaryDial
+                  id="jdsp-tube-dial"
+                  label="VACUUM TUBE"
+                  sublabel="Analog Warmth Saturation"
+                  value={tubeDrive}
                   min={0}
                   max={100}
-                  value={resonance}
-                  onChange={(e) => setResonance(Number(e.target.value))}
-                  className="mt-2.5 w-full cursor-pointer accent-[var(--accent)]"
+                  unit="%"
+                  onChange={setTubeDrive}
                 />
-              </div>
-
-              <div className="rounded-xl border border-edge bg-canvas/70 p-3">
-                <div className="flex justify-between font-mono text-xs">
-                  <label htmlFor="drive-slider" className="text-muted">
-                    DRIVE
-                  </label>
-                  <span className="text-ink">{drive}%</span>
-                </div>
-                <input
-                  id="drive-slider"
-                  type="range"
+                <RotaryDial
+                  id="jdsp-wide-dial"
+                  label="STEREO WIDENER"
+                  sublabel="Haas M/S Expansion"
+                  value={stereoWidth}
                   min={0}
                   max={100}
-                  value={drive}
-                  onChange={(e) => setDrive(Number(e.target.value))}
-                  className="mt-2.5 w-full cursor-pointer accent-[var(--accent)]"
+                  unit="%"
+                  onChange={setStereoWidth}
+                />
+                <RotaryDial
+                  id="jdsp-reverb-dial"
+                  label="ROOM REVERB"
+                  sublabel="Convolver Impulse Mix"
+                  value={reverbMix}
+                  min={0}
+                  max={100}
+                  unit="%"
+                  onChange={setReverbMix}
+                />
+                <RotaryDial
+                  id="jdsp-comp-dial"
+                  label="DRC LIMITER"
+                  sublabel="Dynamic Range Comp"
+                  value={compression}
+                  min={0}
+                  max={100}
+                  unit="%"
+                  onChange={setCompression}
+                />
+                <RotaryDial
+                  id="jdsp-gain-dial"
+                  label="OUTPUT GAIN"
+                  sublabel="Master Post-DSP Level"
+                  value={masterGain}
+                  min={10}
+                  max={100}
+                  unit="%"
+                  onChange={setMasterGain}
                 />
               </div>
-            </div>
+            )}
+
+            {/* BAY 3: 5-BAND MULTIMODAL EQ */}
+            {rackBay === 'eq' && (
+              <div className="mt-4 space-y-3.5">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <span className="font-mono text-[11px] text-muted">CURVES:</span>
+                    {EQ_CURVES.map((curve) => (
+                      <button
+                        key={curve.label}
+                        type="button"
+                        onClick={() => setEqBands(curve.bands)}
+                        className="rounded-md border border-edge bg-canvas/80 px-2 py-0.5 font-mono text-[11px] text-ink transition-colors hover:border-accent/60 hover:text-accent"
+                      >
+                        {curve.label}
+                      </button>
+                    ))}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setEqBands([0, 0, 0, 0, 0])}
+                    className="inline-flex items-center gap-1 rounded-md border border-edge bg-canvas px-2 py-0.5 font-mono text-[11px] text-muted hover:text-ink"
+                  >
+                    <RotateCcw className="h-3 w-3" />
+                    <span>FLAT</span>
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-5">
+                  {EQ_LABELS.map((label, idx) => (
+                    <RotaryDial
+                      key={label}
+                      id={`eq-band-${idx}`}
+                      label={label}
+                      sublabel={idx === 0 ? 'Sub' : idx === 4 ? 'Air' : 'Peak'}
+                      value={eqBands[idx]}
+                      min={-12}
+                      max={12}
+                      step={1}
+                      unit=" dB"
+                      onChange={(val) => updateEqBand(idx, val)}
+                    />
+                  ))}
+                </div>
+              </div>
+            )}
 
             {/* Hardware Switches */}
             <div className="mt-4 grid grid-cols-3 gap-2.5">
@@ -594,7 +1076,10 @@ export function HeroPlayground() {
                     : 'border-edge bg-canvas/60 text-muted hover:text-ink'
                 }`}
               >
-                <span>OVERDRIVE</span>
+                <span className="inline-flex items-center gap-1">
+                  <Zap className="h-3.5 w-3.5" aria-hidden="true" />
+                  OVERDRIVE
+                </span>
                 <span>{overdrive ? 'ON' : 'OFF'}</span>
               </button>
 
