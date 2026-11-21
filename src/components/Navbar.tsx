@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion'
-import { AudioWaveform } from 'lucide-react'
+import { ArrowLeft, AudioWaveform } from 'lucide-react'
 import { THEMES, type ThemeId } from '../hooks/useTheme'
 
 interface NavbarProps {
@@ -12,6 +12,14 @@ export function Navbar({ theme, onThemeChange }: NavbarProps) {
     <header className="sticky top-0 z-50 border-b border-edge bg-canvas/80 backdrop-blur-md">
       <div className="mx-auto flex max-w-6xl flex-col gap-3 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-6">
         <div className="flex items-center gap-2.5">
+          <a
+            href="https://portfolio-hub-44jc.vercel.app/"
+            className="inline-flex items-center gap-1.5 rounded-lg border border-edge bg-surface px-2.5 py-1.5 font-mono text-xs font-medium text-muted transition-colors hover:border-accent/50 hover:text-ink"
+          >
+            <ArrowLeft className="h-3.5 w-3.5 text-accent" aria-hidden="true" />
+            <span>Portfolio</span>
+          </a>
+          <div className="h-5 w-px bg-edge" aria-hidden="true" />
           <div className="flex h-9 w-9 items-center justify-center rounded-lg border border-accent/40 bg-accent/15 text-accent">
             <AudioWaveform className="h-5 w-5" aria-hidden="true" />
           </div>
