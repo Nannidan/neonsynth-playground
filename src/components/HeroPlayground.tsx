@@ -7,7 +7,7 @@ import {
   Sparkles,
   Volume2,
   VolumeX,
-  Youtube,
+  PlayCircle,
   Zap,
 } from 'lucide-react'
 import {
@@ -32,7 +32,7 @@ const SOURCES: { id: AudioSourceMode; label: string }[] = [
 export function HeroPlayground() {
   const [powered, setPowered] = useState(true)
   const [sourceMode, setSourceMode] = useState<AudioSourceMode>('synth')
-  const [youtubeUrl, setYoutubeUrl] = useState('https://www.youtube.com/watch?v=jfKfPfyJRdk')
+  const [youtubeUrl, setPlayCircleUrl] = useState('https://www.youtube.com/watch?v=jfKfPfyJRdk')
   const [ytPlaying, setYtPlaying] = useState(false)
   const [mp3File, setMp3File] = useState<File | null>(null)
 
@@ -235,7 +235,7 @@ export function HeroPlayground() {
                   htmlFor="youtube-url"
                   className="flex items-center gap-2 font-mono text-xs text-muted"
                 >
-                  <Youtube className="h-4 w-4 text-accent" aria-hidden="true" />
+                  <PlayCircle className="h-4 w-4 text-accent" aria-hidden="true" />
                   <span>YOUTUBE TRACK URL</span>
                 </label>
                 <div className="mt-2 flex gap-2">
@@ -244,7 +244,7 @@ export function HeroPlayground() {
                     type="url"
                     value={youtubeUrl}
                     onChange={(e) => {
-                      setYoutubeUrl(e.target.value)
+                      setPlayCircleUrl(e.target.value)
                       setYtPlaying(false)
                     }}
                     placeholder="https://www.youtube.com/watch?v=..."
