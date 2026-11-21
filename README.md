@@ -1,32 +1,49 @@
-# React + TypeScript + Vite
+# NEONSYNTH // K-01
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+An interactive, browser-based modular synthesizer and product landing page built with **React**, **TypeScript**, **Tailwind CSS v4**, **Framer Motion**, and the native **Web Audio API**.
 
-Currently, two official plugins are available:
+**Live Demo:** [neonsynth-playground.vercel.app](https://neonsynth-playground.vercel.app/)
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+---
 
-## React Compiler
+## Key Features
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+- **Real-Time Web Audio DSP Engine:** Synthesizes live Sine, Sawtooth, and Square waves routed through a `BiquadFilterNode` (Cutoff & Resonance), a custom `WaveShaperNode` overdrive curve, and an interactive Arpeggiator loop.
+- **3-Mode Audio Source Switcher:**
+  - **Synth:** Playable browser oscillator with one-click patch randomization.
+  - **Local MP3 / WAV:** Decodes user-uploaded audio files via `AudioBufferSourceNode` and routes them live through the synth's filter and overdrive chain.
+  - **YouTube Deck:** Parses standard, `youtu.be`, and Shorts URLs into an embedded player.
+- **4 Persistent Stage-Tuned Themes:** Instant switching between *Cyber Cyan*, *Synthwave Magenta*, *Studio Dark*, and *High-Contrast Light* using Tailwind v4 `@theme inline` CSS variables persisted in `localStorage`.
+- **Hardware-First UI & Motion:** Responsive Bento feature grid, animated monthly/annual pricing toggle, spring-physics pill transitions (`layoutId`), and accessible keyboard/ARIA switch states.
 
-## Expanding the Oxlint configuration
+---
 
-If you are developing a production application, we recommend enabling type-aware lint rules by installing `oxlint-tsgolint` and editing `.oxlintrc.json`:
+## Tech Stack
 
-```json
-{
-  "$schema": "./node_modules/oxlint/configuration_schema.json",
-  "plugins": ["react", "typescript", "oxc"],
-  "options": {
-    "typeAware": true
-  },
-  "rules": {
-    "react/rules-of-hooks": "error",
-    "react/only-export-components": ["warn", { "allowConstantExport": true }]
-  }
-}
+| Layer | Technology |
+| :--- | :--- |
+| Framework | React 19 + TypeScript |
+| Build Tool | Vite |
+| Styling | Tailwind CSS v4 (`@theme inline` design tokens) |
+| Animation | Framer Motion |
+| Audio DSP | Native Web Audio API (`AudioContext`, `BiquadFilterNode`, `WaveShaperNode`) |
+| Icons | Lucide React |
+| Deployment | Vercel (CI/CD via GitHub) |
+
+---
+
+## Local Development
+
+```bash
+git clone [https://github.com/Nannidan/neonsynth-playground.git](https://github.com/Nannidan/neonsynth-playground.git)
+cd neonsynth-playground
+npm install
+npm run dev
 ```
 
-See the [Oxlint rules documentation](https://oxc.rs/docs/guide/usage/linter/rules) for the full list of rules and categories.
+Build for production:
+
+```bash
+npm run build
+npm run preview
+```
