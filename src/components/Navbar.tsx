@@ -17,7 +17,7 @@ export function Navbar({ theme, onThemeChange }: NavbarProps) {
           </div>
           <div>
             <span className="font-mono text-sm font-bold tracking-wider text-ink">
-              NEONSYNTH // K-01
+              AUDIOSYNTH // HZ
             </span>
             <p className="text-xs text-muted">Browser Modular Engine</p>
           </div>

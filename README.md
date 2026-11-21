@@ -1,4 +1,4 @@
-# NEONSYNTH // K-01
+# AUDIOSYNTH // HZ
 
 An interactive, browser-based modular synthesizer and product landing page built with **React**, **TypeScript**, **Tailwind CSS v4**, **Framer Motion**, and the native **Web Audio API**.
 

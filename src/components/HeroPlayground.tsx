@@ -245,7 +245,7 @@ export function HeroPlayground() {
           </h1>
 
           <p className="mt-4 text-base leading-relaxed text-muted">
-            NEONSYNTH K-01 pairs tactile hardware controls with zero-latency digital
+            AUDIOSYNTH K-01 pairs tactile hardware controls with zero-latency digital
             synthesis. Play the built-in synth, stream a YouTube track, or drop in an MP3
             file to warp it live through the DSP filter chain.
           </p>
