@@ -1,10 +1,9 @@
 import { useMemo, useState } from 'react'
 import { motion } from 'framer-motion'
 import { Power, Shuffle, Sparkles, Volume2, VolumeX, Zap } from 'lucide-react'
+import { useSynthAudio, type SynthWaveform } from '../hooks/useSynthAudio'
 
-type Waveform = 'sine' | 'saw' | 'square'
-
-const WAVEFORMS: { id: Waveform; label: string }[] = [
+const WAVEFORMS: { id: SynthWaveform; label: string }[] = [
   { id: 'sine', label: 'SINE' },
   { id: 'saw', label: 'SAW' },
   { id: 'square', label: 'SQUARE' },
@@ -12,12 +11,22 @@ const WAVEFORMS: { id: Waveform; label: string }[] = [
 
 export function HeroPlayground() {
   const [powered, setPowered] = useState(true)
-  const [waveform, setWaveform] = useState<Waveform>('sine')
+  const [waveform, setWaveform] = useState<SynthWaveform>('sine')
   const [cutoff, setCutoff] = useState(1240)
   const [resonance, setResonance] = useState(48)
   const [drive, setDrive] = useState(35)
   const [arpeggiator, setArpeggiator] = useState(true)
   const [overdrive, setOverdrive] = useState(false)
+
+  const { isPlaying, toggleAudio } = useSynthAudio({
+    powered,
+    waveform,
+    cutoff,
+    resonance,
+    drive,
+    arpeggiator,
+    overdrive,
+  })
 
   const bars = useMemo(() => {
     const count = 20
@@ -75,37 +84,40 @@ export function HeroPlayground() {
 
           <p className="mt-4 text-base leading-relaxed text-muted">
             NEONSYNTH K-01 pairs tactile hardware controls with zero-latency digital
-            synthesis. Test the live patch engine right here—switch themes above to
-            preview studio and stage contrast modes.
+            synthesis. Hit Play Audio to hear the live Web Audio engine react as you
+            tweak the sliders.
           </p>
 
           <div className="mt-7 flex flex-wrap gap-3">
             <button
               type="button"
-              onClick={randomizePatch}
+              onClick={() => {
+                if (!powered) setPowered(true)
+                toggleAudio()
+              }}
               className="inline-flex items-center gap-2 rounded-xl bg-accent px-5 py-3 text-sm font-semibold text-accent-contrast shadow-lg transition-transform hover:scale-[1.02] active:scale-[0.98] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
               style={{ boxShadow: '0 8px 30px var(--glow)' }}
             >
-              <Shuffle className="h-4 w-4" aria-hidden="true" />
-              Randomize Patch
+              {isPlaying ? (
+                <>
+                  <VolumeX className="h-4 w-4" aria-hidden="true" />
+                  Mute Audio
+                </>
+              ) : (
+                <>
+                  <Volume2 className="h-4 w-4" aria-hidden="true" />
+                  Play Audio
+                </>
+              )}
             </button>
 
             <button
               type="button"
-              onClick={() => setPowered((p) => !p)}
+              onClick={randomizePatch}
               className="inline-flex items-center gap-2 rounded-xl border border-edge bg-surface px-5 py-3 text-sm font-semibold text-ink transition-colors hover:border-accent/50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
             >
-              {powered ? (
-                <>
-                  <Volume2 className="h-4 w-4 text-accent" aria-hidden="true" />
-                  Engine Online
-                </>
-              ) : (
-                <>
-                  <VolumeX className="h-4 w-4 text-muted" aria-hidden="true" />
-                  Standby Mode
-                </>
-              )}
+              <Shuffle className="h-4 w-4 text-accent" aria-hidden="true" />
+              Randomize Patch
             </button>
           </div>
         </motion.div>
@@ -126,11 +138,15 @@ export function HeroPlayground() {
               <div className="flex items-center gap-2">
                 <span
                   className={`h-2.5 w-2.5 rounded-full ${
-                    powered ? 'bg-accent animate-pulse' : 'bg-muted/40'
+                    isPlaying
+                      ? 'bg-accent animate-ping'
+                      : powered
+                        ? 'bg-accent'
+                        : 'bg-muted/40'
                   }`}
                 />
                 <span className="font-mono text-xs font-semibold tracking-wider text-ink">
-                  OSC-1 // LIVE SIGNAL READOUT
+                  OSC-1 // {isPlaying ? 'AUDIO LIVE' : 'LIVE SIGNAL READOUT'}
                 </span>
               </div>
 
