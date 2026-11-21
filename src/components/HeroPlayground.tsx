@@ -1,7 +1,21 @@
 import { useMemo, useState } from 'react'
 import { motion } from 'framer-motion'
-import { Power, Shuffle, Sparkles, Volume2, VolumeX, Zap } from 'lucide-react'
-import { useSynthAudio, type SynthWaveform } from '../hooks/useSynthAudio'
+import {
+  FileAudio,
+  Power,
+  Shuffle,
+  Sparkles,
+  Volume2,
+  VolumeX,
+  Youtube,
+  Zap,
+} from 'lucide-react'
+import {
+  extractYouTubeId,
+  useSynthAudio,
+  type AudioSourceMode,
+  type SynthWaveform,
+} from '../hooks/useSynthAudio'
 
 const WAVEFORMS: { id: SynthWaveform; label: string }[] = [
   { id: 'sine', label: 'SINE' },
@@ -9,8 +23,19 @@ const WAVEFORMS: { id: SynthWaveform; label: string }[] = [
   { id: 'square', label: 'SQUARE' },
 ]
 
+const SOURCES: { id: AudioSourceMode; label: string }[] = [
+  { id: 'synth', label: 'SYNTH' },
+  { id: 'youtube', label: 'YOUTUBE' },
+  { id: 'mp3', label: 'MP3 FILE' },
+]
+
 export function HeroPlayground() {
   const [powered, setPowered] = useState(true)
+  const [sourceMode, setSourceMode] = useState<AudioSourceMode>('synth')
+  const [youtubeUrl, setYoutubeUrl] = useState('https://www.youtube.com/watch?v=jfKfPfyJRdk')
+  const [ytPlaying, setYtPlaying] = useState(false)
+  const [mp3File, setMp3File] = useState<File | null>(null)
+
   const [waveform, setWaveform] = useState<SynthWaveform>('sine')
   const [cutoff, setCutoff] = useState(1240)
   const [resonance, setResonance] = useState(48)
@@ -18,7 +43,11 @@ export function HeroPlayground() {
   const [arpeggiator, setArpeggiator] = useState(true)
   const [overdrive, setOverdrive] = useState(false)
 
-  const { isPlaying, toggleAudio } = useSynthAudio({
+  const youtubeId = useMemo(() => extractYouTubeId(youtubeUrl), [youtubeUrl])
+
+  const { isPlaying: webAudioPlaying, audioError, toggleAudio } = useSynthAudio({
+    sourceMode,
+    mp3File,
     powered,
     waveform,
     cutoff,
@@ -27,6 +56,26 @@ export function HeroPlayground() {
     arpeggiator,
     overdrive,
   })
+
+  const isAnyAudioPlaying = sourceMode === 'youtube' ? ytPlaying && powered : webAudioPlaying
+
+  function handlePlayToggle() {
+    if (!powered) setPowered(true)
+    if (sourceMode === 'youtube') {
+      if (!youtubeId) return
+      setYtPlaying((prev) => !prev)
+    } else {
+      setYtPlaying(false)
+      toggleAudio()
+    }
+  }
+
+  function handleSourceChange(next: AudioSourceMode) {
+    setSourceMode(next)
+    if (next !== 'youtube') {
+      setYtPlaying(false)
+    }
+  }
 
   const bars = useMemo(() => {
     const count = 20
@@ -84,21 +133,19 @@ export function HeroPlayground() {
 
           <p className="mt-4 text-base leading-relaxed text-muted">
             NEONSYNTH K-01 pairs tactile hardware controls with zero-latency digital
-            synthesis. Hit Play Audio to hear the live Web Audio engine react as you
-            tweak the sliders.
+            synthesis. Play the built-in synth, stream a YouTube track, or drop in an MP3
+            file to warp it live with the filter and overdrive sliders.
           </p>
 
           <div className="mt-7 flex flex-wrap gap-3">
             <button
               type="button"
-              onClick={() => {
-                if (!powered) setPowered(true)
-                toggleAudio()
-              }}
-              className="inline-flex items-center gap-2 rounded-xl bg-accent px-5 py-3 text-sm font-semibold text-accent-contrast shadow-lg transition-transform hover:scale-[1.02] active:scale-[0.98] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+              onClick={handlePlayToggle}
+              disabled={sourceMode === 'youtube' && !youtubeId}
+              className="inline-flex items-center gap-2 rounded-xl bg-accent px-5 py-3 text-sm font-semibold text-accent-contrast shadow-lg transition-transform hover:scale-[1.02] active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
               style={{ boxShadow: '0 8px 30px var(--glow)' }}
             >
-              {isPlaying ? (
+              {isAnyAudioPlaying ? (
                 <>
                   <VolumeX className="h-4 w-4" aria-hidden="true" />
                   Mute Audio
@@ -106,7 +153,7 @@ export function HeroPlayground() {
               ) : (
                 <>
                   <Volume2 className="h-4 w-4" aria-hidden="true" />
-                  Play Audio
+                  Play {sourceMode === 'youtube' ? 'YouTube' : sourceMode === 'mp3' ? 'MP3' : 'Synth'}
                 </>
               )}
             </button>
@@ -133,12 +180,12 @@ export function HeroPlayground() {
             className="rounded-2xl border border-edge bg-surface p-5 sm:p-6"
             style={{ boxShadow: '0 20px 60px -20px var(--glow)' }}
           >
-            {/* Top Status Strip */}
-            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-edge pb-4">
+            {/* Top Status Strip + Audio Source Selector */}
+            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-edge pb-4">
               <div className="flex items-center gap-2">
                 <span
                   className={`h-2.5 w-2.5 rounded-full ${
-                    isPlaying
+                    isAnyAudioPlaying
                       ? 'bg-accent animate-ping'
                       : powered
                         ? 'bg-accent'
@@ -146,39 +193,130 @@ export function HeroPlayground() {
                   }`}
                 />
                 <span className="font-mono text-xs font-semibold tracking-wider text-ink">
-                  OSC-1 // {isPlaying ? 'AUDIO LIVE' : 'LIVE SIGNAL READOUT'}
+                  OSC-1 // {isAnyAudioPlaying ? 'AUDIO LIVE' : 'STANDBY'}
                 </span>
               </div>
 
-              <div className="flex items-center gap-2 font-mono text-xs text-muted">
-                <span>{powered ? `${cutoff} Hz` : 'MUTED'}</span>
-                <span>•</span>
-                <span className="uppercase text-accent">{waveform}</span>
-                {overdrive && powered && (
-                  <span className="inline-flex items-center gap-1 rounded bg-accent/15 px-1.5 py-0.5 text-accent">
-                    <Zap className="h-3 w-3" aria-hidden="true" />
-                    OD
-                  </span>
-                )}
+              <div
+                role="group"
+                aria-label="Audio input source"
+                className="flex gap-1 rounded-lg border border-edge bg-canvas p-1"
+              >
+                {SOURCES.map((src) => {
+                  const active = sourceMode === src.id
+                  return (
+                    <button
+                      key={src.id}
+                      type="button"
+                      aria-pressed={active}
+                      onClick={() => handleSourceChange(src.id)}
+                      className={`relative rounded-md px-2.5 py-1 font-mono text-[11px] font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-accent ${
+                        active ? 'text-accent-contrast' : 'text-muted hover:text-ink'
+                      }`}
+                    >
+                      {active && (
+                        <motion.span
+                          layoutId="sourcePill"
+                          transition={{ type: 'spring', stiffness: 450, damping: 32 }}
+                          className="absolute inset-0 rounded-md bg-accent"
+                        />
+                      )}
+                      <span className="relative z-10">{src.label}</span>
+                    </button>
+                  )
+                })}
               </div>
             </div>
+
+            {/* YouTube Input Panel */}
+            {sourceMode === 'youtube' && (
+              <div className="mt-4 rounded-xl border border-edge bg-canvas/80 p-3.5">
+                <label
+                  htmlFor="youtube-url"
+                  className="flex items-center gap-2 font-mono text-xs text-muted"
+                >
+                  <Youtube className="h-4 w-4 text-accent" aria-hidden="true" />
+                  <span>YOUTUBE TRACK URL</span>
+                </label>
+                <div className="mt-2 flex gap-2">
+                  <input
+                    id="youtube-url"
+                    type="url"
+                    value={youtubeUrl}
+                    onChange={(e) => {
+                      setYoutubeUrl(e.target.value)
+                      setYtPlaying(false)
+                    }}
+                    placeholder="https://www.youtube.com/watch?v=..."
+                    className="w-full rounded-lg border border-edge bg-surface px-3 py-2 font-mono text-xs text-ink placeholder:text-muted/60 focus:border-accent focus:outline-none"
+                  />
+                </div>
+                {!youtubeId && youtubeUrl.trim().length > 0 && (
+                  <p className="mt-1.5 font-mono text-[11px] text-rose-400">
+                    Paste a valid YouTube link (watch?v=, youtu.be/, or shorts/).
+                  </p>
+                )}
+                {ytPlaying && powered && youtubeId && (
+                  <div className="mt-3 overflow-hidden rounded-lg border border-edge">
+                    <iframe
+                      title="YouTube audio deck"
+                      src={`https://www.youtube.com/embed/${youtubeId}?autoplay=1&rel=0`}
+                      allow="autoplay; encrypted-media"
+                      className="h-24 w-full"
+                    />
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Local MP3 Upload Panel */}
+            {sourceMode === 'mp3' && (
+              <div className="mt-4 rounded-xl border border-edge bg-canvas/80 p-3.5">
+                <label
+                  htmlFor="mp3-upload"
+                  className="flex items-center justify-between gap-2 font-mono text-xs text-muted"
+                >
+                  <span className="inline-flex items-center gap-2">
+                    <FileAudio className="h-4 w-4 text-accent" aria-hidden="true" />
+                    <span>LOCAL MP3 / WAV (LIVE DSP FX ENABLED)</span>
+                  </span>
+                  {mp3File && (
+                    <span className="truncate max-w-[160px] text-accent">{mp3File.name}</span>
+                  )}
+                </label>
+                <input
+                  id="mp3-upload"
+                  type="file"
+                  accept="audio/mpeg,audio/mp3,audio/wav,audio/*"
+                  onChange={(e) => setMp3File(e.target.files?.[0] ?? null)}
+                  className="mt-2 block w-full cursor-pointer font-mono text-xs text-muted file:mr-3 file:rounded-lg file:border-0 file:bg-accent/15 file:px-3 file:py-1.5 file:font-mono file:text-xs file:font-semibold file:text-accent hover:file:bg-accent/25"
+                />
+                {audioError && (
+                  <p className="mt-1.5 font-mono text-[11px] text-rose-400">{audioError}</p>
+                )}
+              </div>
+            )}
 
             {/* Live Visualizer Display */}
             <div
               aria-label="Live waveform visualizer"
-              className="mt-5 flex h-44 items-end justify-between gap-1.5 rounded-xl border border-edge bg-canvas p-4"
+              className="mt-4 flex h-40 items-end justify-between gap-1.5 rounded-xl border border-edge bg-canvas p-4"
             >
               {bars.map((height, idx) => (
                 <motion.div
                   key={idx}
                   animate={{
                     height: `${height}%`,
-                    opacity: powered ? (arpeggiator ? [0.65, 1, 0.7] : 0.92) : 0.25,
+                    opacity: powered
+                      ? isAnyAudioPlaying || arpeggiator
+                        ? [0.65, 1, 0.7]
+                        : 0.92
+                      : 0.25,
                   }}
                   transition={{
                     height: { type: 'spring', stiffness: 260, damping: 22 },
                     opacity:
-                      powered && arpeggiator
+                      powered && (isAnyAudioPlaying || arpeggiator)
                         ? {
                             repeat: Infinity,
                             duration: Math.max(0.45, 1.4 - cutoff / 2400),
@@ -196,7 +334,15 @@ export function HeroPlayground() {
 
             {/* Waveform Selector */}
             <div className="mt-5 flex flex-wrap items-center justify-between gap-3">
-              <span className="font-mono text-xs font-medium text-muted">WAVEFORM</span>
+              <div className="flex items-center gap-2 font-mono text-xs text-muted">
+                <span>WAVEFORM</span>
+                {overdrive && powered && (
+                  <span className="inline-flex items-center gap-1 rounded bg-accent/15 px-1.5 py-0.5 text-accent">
+                    <Zap className="h-3 w-3" aria-hidden="true" />
+                    OD
+                  </span>
+                )}
+              </div>
               <div className="flex gap-1.5 rounded-lg border border-edge bg-canvas p-1">
                 {WAVEFORMS.map((wf) => {
                   const selected = waveform === wf.id
@@ -318,7 +464,12 @@ export function HeroPlayground() {
                 type="button"
                 role="switch"
                 aria-checked={powered}
-                onClick={() => setPowered((p) => !p)}
+                onClick={() => {
+                  setPowered((p) => {
+                    if (p) setYtPlaying(false)
+                    return !p
+                  })
+                }}
                 className={`flex items-center justify-between rounded-xl border px-3 py-2.5 font-mono text-xs font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-accent ${
                   powered
                     ? 'border-accent/50 bg-accent/15 text-accent'

@@ -1,8 +1,11 @@
 import { useEffect, useRef, useState } from 'react'
 
 export type SynthWaveform = 'sine' | 'saw' | 'square'
+export type AudioSourceMode = 'synth' | 'youtube' | 'mp3'
 
 interface SynthParams {
+  sourceMode: AudioSourceMode
+  mp3File: File | null
   powered: boolean
   waveform: SynthWaveform
   cutoff: number
@@ -25,10 +28,37 @@ function makeDistortionCurve(amount: number) {
   return curve
 }
 
+export function extractYouTubeId(input: string): string | null {
+  const trimmed = input.trim()
+  if (!trimmed) return null
+  if (/^[a-zA-Z0-9_-]{11}$/.test(trimmed)) return trimmed
+
+  try {
+    const url = new URL(trimmed)
+    if (url.hostname.includes('youtu.be')) {
+      const id = url.pathname.slice(1).split('/')[0]
+      return /^[a-zA-Z0-9_-]{11}$/.test(id) ? id : null
+    }
+    const vParam = url.searchParams.get('v')
+    if (vParam && /^[a-zA-Z0-9_-]{11}$/.test(vParam)) return vParam
+
+    const parts = url.pathname.split('/').filter(Boolean)
+    const idx = parts.findIndex((p) => p === 'embed' || p === 'shorts' || p === 'live')
+    if (idx !== -1 && parts[idx + 1] && /^[a-zA-Z0-9_-]{11}$/.test(parts[idx + 1])) {
+      return parts[idx + 1]
+    }
+  } catch {
+    return null
+  }
+  return null
+}
+
 export function useSynthAudio(params: SynthParams) {
   const [isPlaying, setIsPlaying] = useState(false)
+  const [audioError, setAudioError] = useState<string | null>(null)
 
   const ctxRef = useRef<AudioContext | null>(null)
+  const sourceRef = useRef<OscillatorNode | AudioBufferSourceNode | null>(null)
   const oscRef = useRef<OscillatorNode | null>(null)
   const filterRef = useRef<BiquadFilterNode | null>(null)
   const shaperRef = useRef<WaveShaperNode | null>(null)
@@ -36,13 +66,14 @@ export function useSynthAudio(params: SynthParams) {
   const stepRef = useRef(0)
 
   function stopAudio() {
-    if (oscRef.current) {
+    if (sourceRef.current) {
       try {
-        oscRef.current.stop()
-        oscRef.current.disconnect()
+        sourceRef.current.stop()
+        sourceRef.current.disconnect()
       } catch {
         // already stopped
       }
+      sourceRef.current = null
       oscRef.current = null
     }
     if (ctxRef.current) {
@@ -52,71 +83,120 @@ export function useSynthAudio(params: SynthParams) {
     setIsPlaying(false)
   }
 
-  function startAudio() {
+  async function startAudio() {
     if (ctxRef.current) return
+    setAudioError(null)
 
-    const ctx = new window.AudioContext()
-    const osc = ctx.createOscillator()
-    const filter = ctx.createBiquadFilter()
-    const shaper = ctx.createWaveShaper()
-    const gain = ctx.createGain()
+    if (params.sourceMode === 'mp3' && !params.mp3File) {
+      setAudioError('Choose an MP3 or WAV file first.')
+      return
+    }
 
-    osc.type = params.waveform === 'saw' ? 'sawtooth' : params.waveform
-    osc.frequency.value = 220
+    try {
+      const ctx = new window.AudioContext()
+      const filter = ctx.createBiquadFilter()
+      const shaper = ctx.createWaveShaper()
+      const gain = ctx.createGain()
 
-    filter.type = 'lowpass'
-    filter.frequency.value = params.cutoff
-    filter.Q.value = (params.resonance / 100) * 18
+      filter.type = 'lowpass'
+      filter.frequency.value = params.cutoff
+      filter.Q.value = (params.resonance / 100) * 18
 
-    shaper.curve = params.overdrive ? makeDistortionCurve(params.drive * 2) : null
-    shaper.oversample = '4x'
+      shaper.curve = params.overdrive ? makeDistortionCurve(params.drive * 2) : null
+      shaper.oversample = '4x'
 
-    gain.gain.value = 0.08 + (params.drive / 100) * 0.12
+      gain.gain.value =
+        params.sourceMode === 'mp3'
+          ? 0.35 + (params.drive / 100) * 0.65
+          : 0.08 + (params.drive / 100) * 0.12
 
-    osc.connect(filter)
-    filter.connect(shaper)
-    shaper.connect(gain)
-    gain.connect(ctx.destination)
+      filter.connect(shaper)
+      shaper.connect(gain)
+      gain.connect(ctx.destination)
 
-    osc.start()
+      if (params.sourceMode === 'mp3' && params.mp3File) {
+        const rawBuffer = await params.mp3File.arrayBuffer()
+        const decoded = await ctx.decodeAudioData(rawBuffer)
+        const bufferSource = ctx.createBufferSource()
+        bufferSource.buffer = decoded
+        bufferSource.loop = true
+        bufferSource.connect(filter)
+        bufferSource.start()
+        sourceRef.current = bufferSource
+        oscRef.current = null
+      } else {
+        const osc = ctx.createOscillator()
+        osc.type = params.waveform === 'saw' ? 'sawtooth' : params.waveform
+        osc.frequency.value = 220
+        osc.connect(filter)
+        osc.start()
+        sourceRef.current = osc
+        oscRef.current = osc
+      }
 
-    ctxRef.current = ctx
-    oscRef.current = osc
-    filterRef.current = filter
-    shaperRef.current = shaper
-    gainRef.current = gain
-    setIsPlaying(true)
+      ctxRef.current = ctx
+      filterRef.current = filter
+      shaperRef.current = shaper
+      gainRef.current = gain
+      setIsPlaying(true)
+    } catch {
+      stopAudio()
+      setAudioError('Could not decode that audio file. Try a standard MP3 or WAV.')
+    }
   }
 
   function toggleAudio() {
     if (isPlaying) {
       stopAudio()
     } else {
-      startAudio()
+      void startAudio()
     }
   }
 
-  // Stop audio automatically if synth power is turned off
+  // Stop Web Audio if power is turned off or source changes
   useEffect(() => {
-    if (!params.powered && isPlaying) {
+    if ((!params.powered || params.sourceMode === 'youtube') && isPlaying) {
       stopAudio()
     }
-  }, [params.powered, isPlaying])
+  }, [params.powered, params.sourceMode, isPlaying])
 
-  // Live-update oscillator, filter, and distortion when sliders move
+  // Reset playback if user swaps MP3 files or switches between synth/mp3
   useEffect(() => {
-    if (!isPlaying || !ctxRef.current || !oscRef.current || !filterRef.current || !shaperRef.current || !gainRef.current) {
+    if (isPlaying) {
+      stopAudio()
+    }
+    setAudioError(null)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [params.sourceMode, params.mp3File])
+
+  // Live-update DSP nodes when sliders move (works for both Synth and MP3)
+  useEffect(() => {
+    if (!isPlaying || !ctxRef.current || !filterRef.current || !shaperRef.current || !gainRef.current) {
       return
     }
     const now = ctxRef.current.currentTime
-    oscRef.current.type = params.waveform === 'saw' ? 'sawtooth' : params.waveform
+    if (oscRef.current) {
+      oscRef.current.type = params.waveform === 'saw' ? 'sawtooth' : params.waveform
+    }
     filterRef.current.frequency.setTargetAtTime(params.cutoff, now, 0.02)
     filterRef.current.Q.setTargetAtTime((params.resonance / 100) * 18, now, 0.02)
     shaperRef.current.curve = params.overdrive ? makeDistortionCurve(params.drive * 2) : null
-    gainRef.current.gain.setTargetAtTime(0.08 + (params.drive / 100) * 0.12, now, 0.02)
-  }, [isPlaying, params.waveform, params.cutoff, params.resonance, params.drive, params.overdrive])
+    const targetGain =
+      params.sourceMode === 'mp3'
+        ? 0.35 + (params.drive / 100) * 0.65
+        : 0.08 + (params.drive / 100) * 0.12
+    gainRef.current.gain.setTargetAtTime(targetGain, now, 0.02)
+  }, [
+    isPlaying,
+    params.sourceMode,
+    params.waveform,
+    params.cutoff,
+    params.resonance,
+    params.drive,
+    params.overdrive,
+  ])
 
-  // Arpeggiator loop
+  // Arpeggiator loop (synth mode only)
   useEffect(() => {
     if (!isPlaying || !oscRef.current || !ctxRef.current) return
 
@@ -135,10 +215,9 @@ export function useSynthAudio(params: SynthParams) {
     return () => window.clearInterval(interval)
   }, [isPlaying, params.arpeggiator])
 
-  // Clean up on unmount
   useEffect(() => {
     return () => stopAudio()
   }, [])
 
-  return { isPlaying, toggleAudio }
+  return { isPlaying, audioError, toggleAudio, stopAudio }
 }
